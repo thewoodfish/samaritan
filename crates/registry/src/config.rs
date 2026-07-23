@@ -49,6 +49,11 @@ pub struct AnalyzerConfig {
     pub domains: Vec<String>,
     pub intents: Vec<String>,
     pub subjects: Vec<String>,
+    /// The primary metric the analyzer investigates, `subject.observable`. The
+    /// seed of a graph walk — the analyzer's view, not code. Optional so an
+    /// analyzer with no single target still parses.
+    #[serde(default)]
+    pub metric: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

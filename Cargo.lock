@@ -261,6 +261,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "samaritan-analyzer"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "samaritan-graph",
+ "samaritan-planning",
+ "samaritan-registry",
+ "samaritan-schema",
+ "serde_json",
+]
+
+[[package]]
 name = "samaritan-dispatch"
 version = "0.0.0"
 dependencies = [

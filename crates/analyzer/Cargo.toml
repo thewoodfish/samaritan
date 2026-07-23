@@ -1,0 +1,22 @@
+[package]
+name = "samaritan-analyzer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Plan to InformationRequirements. A generic strategy walks the relation graph;
+# the mining knowledge lives in the graph, not here. Depends on schema, graph,
+# registry. Never on planning or dispatch.
+[dependencies]
+samaritan-schema.workspace = true
+samaritan-graph.workspace = true
+samaritan-registry.workspace = true
+
+[dev-dependencies]
+samaritan-planning.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+[lints]
+workspace = true

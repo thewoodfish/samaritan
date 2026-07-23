@@ -9,7 +9,8 @@ members = [
     "crates/graph",      # samaritan-graph      — the relation graph.  depends on schema.
     "crates/registry",   # samaritan-registry   — load + validate.     depends on schema, graph.
     "crates/planning",   # samaritan-planning   — question to plan.     depends on schema, registry, graph.
-    "crates/dispatch",   # samaritan-dispatch   — fan out, collect.     depends on schema, registry, graph, planning.
+    "crates/analyzer",   # samaritan-analyzer   — plan to requirements. depends on schema, registry, graph.
+    "crates/dispatch",   # samaritan-dispatch   — fan out, collect.     depends on schema, registry, graph, planning, analyzer.
     "crates/samaritan",  # the binary.          depends on all.
 ]
 
@@ -24,6 +25,7 @@ samaritan-schema   = { path = "crates/schema" }
 samaritan-graph    = { path = "crates/graph" }
 samaritan-registry = { path = "crates/registry" }
 samaritan-planning = { path = "crates/planning" }
+samaritan-analyzer = { path = "crates/analyzer" }
 samaritan-dispatch = { path = "crates/dispatch" }
 
 # Third-party. Pinned in Cargo.lock, committed for reproducible builds.

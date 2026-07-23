@@ -20,9 +20,9 @@ cd "$(dirname "$0")/.."
 # The pure layer flows one way only; each crate lists everything downstream
 # of it that it must never reach back into.
 RULES="
-samaritan-schema samaritan-graph samaritan-registry samaritan-planning samaritan-dispatch samaritan
-samaritan-graph samaritan-registry samaritan-planning samaritan-dispatch samaritan
-samaritan-registry samaritan-planning samaritan-dispatch samaritan
+samaritan-schema samaritan-graph samaritan-registry samaritan-planning samaritan-analyzer samaritan-dispatch samaritan
+samaritan-graph samaritan-registry samaritan-planning samaritan-analyzer samaritan-dispatch samaritan
+samaritan-registry samaritan-planning samaritan-analyzer samaritan-dispatch samaritan
 "
 
 metadata="$(cargo metadata --format-version 1 --no-deps)"

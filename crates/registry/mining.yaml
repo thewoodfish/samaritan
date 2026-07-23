@@ -50,6 +50,7 @@ analyzers:
     domains: [OperationalPerformance, Production]
     intents: [Explain, Compare, Summarize]
     subjects: [haul_cycle, loading_event, production_shift, equipment_availability, blast_event, entity_track]
+    metric: haul_cycle.cycle_time
 
   - name: flow
     version: "1.0.0"
