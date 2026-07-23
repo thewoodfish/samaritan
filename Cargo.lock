@@ -247,6 +247,8 @@ name = "samaritan-graph"
 version = "0.0.0"
 dependencies = [
  "samaritan-schema",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]

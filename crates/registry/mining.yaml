@@ -154,6 +154,7 @@ subjects:
       equipment_id:    { type: id }
       equipment_class: { type: enum, of: EquipmentClass }
       downtime_type:   { type: enum, of: DowntimeType }
+      subsystem:       { type: enum, of: Subsystem }
       planned:         { type: boolean }
       fault_code:      { type: string }
       shift_id:        { type: id }
@@ -473,7 +474,7 @@ relations:
     - metric: haul_cycle.cycle_time
       by: [equipment_id, destination, material_type, operator_id, shift_id]
     - metric: haul_cycle.queue_time
-      by: [location, destination, shift_id]
+      by: [destination, equipment_id, shift_id]
     - metric: production_shift.mass_moved
       by: [material_type, area, crew_id]
     - metric: downtime_event.duration

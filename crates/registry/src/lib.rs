@@ -16,6 +16,9 @@ pub mod calendar;
 pub mod config;
 pub mod finding;
 mod validate;
+mod validate_relations;
+
+pub use samaritan_graph::{RelationGraph, RelationsConfig};
 
 use std::collections::BTreeMap;
 
@@ -110,6 +113,13 @@ impl Registry {
     /// The full reverse index, for inspection and tests.
     pub fn reverse_index(&self) -> &BTreeMap<String, Vec<String>> {
         &self.reverse_index
+    }
+
+    /// Build the typed relation graph for traversal. Infallible on a validated
+    /// registry — every reference resolved and every mode parsed at load.
+    pub fn relation_graph(&self) -> RelationGraph {
+        RelationGraph::from_config(&self.config.relations)
+            .expect("a validated registry always builds its graph")
     }
 }
 

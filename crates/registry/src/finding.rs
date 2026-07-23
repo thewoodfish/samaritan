@@ -8,9 +8,10 @@ use std::fmt;
 /// Every validation code the loader can raise. The `str` form matches
 /// `REGISTRY.md` exactly, so a failure is greppable back to the spec.
 ///
-/// Stage 2 implements the registry-owned checks. The graph-owned codes (E08,
-/// E18–E23, W07–W09) are raised by the graph crate in stage 3 and are absent
-/// here by design.
+/// The registry-owned checks (E01–E07, E09–E17, W01–W06) and the relation
+/// checks (E18–E23, W07–W09) validated against the vocabulary. E08 — a spatial
+/// predicate on a non-spatial subject — is a requirement-time check enforced at
+/// dispatch (stage 7), not a registry check, and is absent here by design.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Code {
     // Errors — the registry does not load.
@@ -30,6 +31,12 @@ pub enum Code {
     E15ObservableUnitInconsistent,
     E16DurationNamedHoursOrMinutes,
     E17RatioPercentageUnit,
+    E18RelationUnknownRef,
+    E19DecompositionBadMode,
+    E20AdditivePartsUnitMismatch,
+    E21PartitionUnknownAttribute,
+    E22RelationUnreachableSubject,
+    E23RollsUpUnknownSubject,
     // Warnings — the registry loads.
     W01DomainWithoutAnalyzer,
     W02UnreachableSubject,
@@ -37,6 +44,9 @@ pub enum Code {
     W04UnusedEnumeration,
     W05MaxAnalyzersExceedsRegistered,
     W06RestrictedZoneWithoutList,
+    W07NumericObservableInNoRelation,
+    W08InfluenceWithoutLag,
+    W09SubjectWithoutPartitions,
 }
 
 impl Code {
@@ -60,12 +70,21 @@ impl Code {
             E15ObservableUnitInconsistent => "E15",
             E16DurationNamedHoursOrMinutes => "E16",
             E17RatioPercentageUnit => "E17",
+            E18RelationUnknownRef => "E18",
+            E19DecompositionBadMode => "E19",
+            E20AdditivePartsUnitMismatch => "E20",
+            E21PartitionUnknownAttribute => "E21",
+            E22RelationUnreachableSubject => "E22",
+            E23RollsUpUnknownSubject => "E23",
             W01DomainWithoutAnalyzer => "W01",
             W02UnreachableSubject => "W02",
             W03UnreachableObservable => "W03",
             W04UnusedEnumeration => "W04",
             W05MaxAnalyzersExceedsRegistered => "W05",
             W06RestrictedZoneWithoutList => "W06",
+            W07NumericObservableInNoRelation => "W07",
+            W08InfluenceWithoutLag => "W08",
+            W09SubjectWithoutPartitions => "W09",
         }
     }
 

@@ -28,9 +28,12 @@ pub struct RegistryConfig {
     pub baseline_defaults: BTreeMap<String, String>,
     pub window_required: BTreeMap<String, bool>,
     pub thresholds: ThresholdsConfig,
-    // `models` and `relations` are intentionally not modelled in stage 2:
-    // model config is exercised in stage 6, relations in stage 3. Unknown
-    // keys are ignored (no deny_unknown_fields), so they pass through.
+    /// The relation graph. Parsed via the graph crate; validated here (E18–E23,
+    /// W07–W09) against the vocabulary above.
+    #[serde(default)]
+    pub relations: samaritan_graph::RelationsConfig,
+    // `models` is intentionally not modelled in stage 2 — it is exercised in
+    // stage 6. Unknown keys are ignored (no deny_unknown_fields).
 }
 
 #[derive(Debug, Clone, Deserialize)]

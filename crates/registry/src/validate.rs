@@ -32,6 +32,7 @@ pub fn validate(cfg: &RegistryConfig) -> Vec<Finding> {
     calendars(cfg, &mut f);
     strategies_and_baselines(cfg, &intents, &mut f);
     coverage_warnings(cfg, &mut f);
+    crate::validate_relations::validate_relations(cfg, &mut f);
 
     f.sort_by(|a, b| {
         a.code

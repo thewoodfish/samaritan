@@ -30,13 +30,14 @@ fn assert_exactly(cfg: &RegistryConfig, code: Code) {
 
 #[test]
 fn mining_registry_loads_clean() {
-    let reg = Registry::mining().expect("mining registry must load");
-    // Warnings are expected and allowed: three uncovered domains + W05.
+    let reg = Registry::mining().expect("mining registry must load with no errors");
     let warn_codes: Vec<Code> = reg.warnings().iter().map(|f| f.code).collect();
-    assert!(warn_codes.contains(&Code::W01DomainWithoutAnalyzer));
-    assert!(warn_codes.contains(&Code::W05MaxAnalyzersExceedsRegistered));
-    // Exactly the four we expect: W01 x3 (Infrastructure, Personnel, Security)
-    // plus W05 x1.
+    // Expected, non-blocking warnings:
+    //   W01 x3  — Infrastructure, Personnel, Security have no analyzer
+    //   W05 x1  — max_analyzers (8) exceeds the five registered
+    //   W07     — numeric observables not yet in any relation (the mining
+    //             relations are a deliberate subset, per GRAPH.md)
+    //   W09     — subjects without declared partitions
     assert_eq!(
         warn_codes
             .iter()
@@ -44,7 +45,32 @@ fn mining_registry_loads_clean() {
             .count(),
         3
     );
-    assert_eq!(reg.warnings().len(), 4, "warnings: {:?}", reg.warnings());
+    assert!(warn_codes.contains(&Code::W05MaxAnalyzersExceedsRegistered));
+    assert!(warn_codes.contains(&Code::W07NumericObservableInNoRelation));
+    assert!(warn_codes.contains(&Code::W09SubjectWithoutPartitions));
+    // No relation *errors* — every reference resolves and every mode parses.
+    for reserved in [
+        Code::E18RelationUnknownRef,
+        Code::E19DecompositionBadMode,
+        Code::E20AdditivePartsUnitMismatch,
+        Code::E21PartitionUnknownAttribute,
+        Code::E22RelationUnreachableSubject,
+        Code::E23RollsUpUnknownSubject,
+    ] {
+        assert!(
+            !warn_codes.contains(&reserved),
+            "unexpected {reserved} on the clean registry"
+        );
+    }
+}
+
+#[test]
+fn mining_relation_graph_builds() {
+    // A validated registry always builds its typed graph for traversal.
+    let reg = Registry::mining().unwrap();
+    let g = reg.relation_graph();
+    assert_eq!(g.decomposes().len(), 6);
+    assert_eq!(g.influences().len(), 9);
 }
 
 // ---- reverse index --------------------------------------------------------
@@ -221,24 +247,26 @@ fn e14_baseline_unknown_intent() {
 #[test]
 fn e15_unit_inconsistent_with_type() {
     let mut c = base_config();
+    // haul_distance is a confounder factor (referenced by name) but is in no
+    // decomposition, so a bad unit trips only E15 — no E18, no E20 cascade.
     c.subjects
         .get_mut("haul_cycle")
         .unwrap()
         .observables
-        .get_mut("cycle_time")
+        .get_mut("haul_distance")
         .unwrap()
-        .unit = Some("h".into()); // duration must be seconds
+        .unit = Some("km".into()); // distance must be metres
     assert_exactly(&c, Code::E15ObservableUnitInconsistent);
 }
 
 #[test]
 fn e16_duration_named_hours() {
     let mut c = base_config();
-    // dump_time is referenced by no ratio definition, so renaming it isolates
-    // E16 without tripping E06.
-    let obs = &mut c.subjects.get_mut("haul_cycle").unwrap().observables;
-    let spec = obs.remove("dump_time").unwrap();
-    obs.insert("dump_minutes".into(), spec); // seconds, but named minutes
+    // loading_event.spot_time is in no ratio definition and no relation, so
+    // renaming it isolates E16 without tripping E06 or E18.
+    let obs = &mut c.subjects.get_mut("loading_event").unwrap().observables;
+    let spec = obs.remove("spot_time").unwrap();
+    obs.insert("spot_minutes".into(), spec); // seconds, but named minutes
     assert_exactly(&c, Code::E16DurationNamedHoursOrMinutes);
 }
 
@@ -314,4 +342,101 @@ fn w06_restricted_zone_without_list() {
     let mut c = base_config();
     c.zones[3].restricted_to = None; // blast_area_c is restricted
     assert!(warning_codes(&c).contains(&Code::W06RestrictedZoneWithoutList));
+}
+
+// ---- relation error fixtures (E18-E23) ------------------------------------
+
+#[test]
+fn e18_relation_unknown_ref() {
+    let mut c = base_config();
+    // haul_cycle is reachable, so only the unknown field trips — E18, not E22.
+    c.relations.confounds.push(
+        serde_yaml::from_str(
+            "{factor: haul_cycle.nonexistent_field, affects: haul_cycle.cycle_time}",
+        )
+        .unwrap(),
+    );
+    assert_exactly(&c, Code::E18RelationUnknownRef);
+}
+
+#[test]
+fn e19_decomposition_bad_mode() {
+    let mut c = base_config();
+    c.relations.decomposes[0].mode = None; // was multiplicative
+    assert_exactly(&c, Code::E19DecompositionBadMode);
+}
+
+#[test]
+fn e20_additive_parts_unit_mismatch() {
+    let mut c = base_config();
+    // An additive decomposition of a duration whole with a mass part.
+    c.relations.decomposes.push(
+        serde_yaml::from_str(
+            "{whole: haul_cycle.cycle_time, mode: additive, parts: [haul_cycle.payload_mass]}",
+        )
+        .unwrap(),
+    );
+    assert_exactly(&c, Code::E20AdditivePartsUnitMismatch);
+}
+
+#[test]
+fn e21_partition_unknown_attribute() {
+    let mut c = base_config();
+    c.relations.partitions.push(
+        serde_yaml::from_str("{metric: haul_cycle.cycle_time, by: [not_an_attribute]}").unwrap(),
+    );
+    assert_exactly(&c, Code::E21PartitionUnknownAttribute);
+}
+
+#[test]
+fn e22_relation_unreachable_subject() {
+    let mut c = base_config();
+    // An existing but unreachable subject (no analyzer lists it), referenced by
+    // a confounder. The unreachable-subject warning W02 also fires, but the
+    // only *error* is E22.
+    c.subjects.insert(
+        "orphan_subject".into(),
+        serde_yaml::from_str("{observables: {metric: {type: count}}}").unwrap(),
+    );
+    c.relations.confounds.push(
+        serde_yaml::from_str("{factor: orphan_subject.metric, affects: haul_cycle.cycle_time}")
+            .unwrap(),
+    );
+    assert_exactly(&c, Code::E22RelationUnreachableSubject);
+}
+
+#[test]
+fn e23_rolls_up_unknown_subject() {
+    let mut c = base_config();
+    c.relations
+        .rolls_up
+        .push(serde_yaml::from_str("{from: haul_cycle, to: no_such_subject}").unwrap());
+    assert_exactly(&c, Code::E23RollsUpUnknownSubject);
+}
+
+// ---- relation warning fixtures (W07-W09) ----------------------------------
+
+#[test]
+fn w07_numeric_observable_in_no_relation() {
+    // Present in the base registry: many numeric observables sit outside the
+    // relation subset.
+    assert!(warning_codes(&base_config()).contains(&Code::W07NumericObservableInNoRelation));
+}
+
+#[test]
+fn w08_influence_without_lag() {
+    let mut c = base_config();
+    c.relations.influences.push(
+        serde_yaml::from_str(
+            "{from: haul_cycle.cycle_time, to: production_shift.mass_moved, persistence: 100}",
+        )
+        .unwrap(),
+    );
+    assert!(warning_codes(&c).contains(&Code::W08InfluenceWithoutLag));
+}
+
+#[test]
+fn w09_subject_without_partitions() {
+    // Present in the base registry: several subjects have no partitions.
+    assert!(warning_codes(&base_config()).contains(&Code::W09SubjectWithoutPartitions));
 }
