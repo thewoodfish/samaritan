@@ -159,14 +159,14 @@ analyzers:
     domains: [OperationalPerformance, Production]
     intents: [Explain, Compare, Summarize]
     subjects: [haul_cycle, loading_event, production_shift,
-               equipment_availability, entity_track]
+               equipment_availability, blast_event, entity_track]
 
   - name: flow
     version: 1.0.0
     domains: [MaterialFlow, Logistics]
     intents: [Explain, Compare, Locate, Summarize]
     subjects: [haul_cycle, queue_event, route_segment, material_movement,
-               entity_track, zone_visit]
+               crusher_availability, entity_track, zone_visit]
 
   - name: maintenance
     version: 1.0.0
@@ -270,6 +270,8 @@ subjects:
       dump_time:        { type: duration, unit: s }
       return_time:      { type: duration, unit: s }
       payload_mass:     { type: mass,     unit: kg }
+      rated_capacity:   { type: mass,     unit: kg }
+      fill_factor:      { type: ratio, definition: payload_mass / rated_capacity }
       haul_distance:    { type: distance, unit: m }
     attributes:
       equipment_id:     { type: id }
@@ -285,6 +287,7 @@ subjects:
     observables:
       load_time:        { type: duration, unit: s }
       spot_time:        { type: duration, unit: s }
+      swing_time:       { type: duration, unit: s }
       bucket_count:     { type: count }
       payload_mass:     { type: mass,     unit: kg }
     attributes:
@@ -329,9 +332,11 @@ subjects:
   downtime_event:
     description: a period a machine was not available for production
     observables:
-      duration:         { type: duration, unit: s }
-      response_time:    { type: duration, unit: s }
-      repair_time:      { type: duration, unit: s }
+      duration:            { type: duration, unit: s }
+      planned_duration:    { type: duration, unit: s }
+      unplanned_duration:  { type: duration, unit: s }
+      response_time:       { type: duration, unit: s }
+      repair_time:         { type: duration, unit: s }
     attributes:
       equipment_id:     { type: id }
       equipment_class:  { type: enum, of: EquipmentClass }
@@ -371,6 +376,7 @@ subjects:
     observables:
       mass_moved:       { type: mass, unit: kg }
       mass_planned:     { type: mass, unit: kg }
+      mean_payload:     { type: mass, unit: kg }
       cycles_completed: { type: count }
       achievement_ratio:{ type: ratio, definition: mass_moved / mass_planned }
     attributes:
@@ -404,6 +410,35 @@ subjects:
       equipment_id:     { type: id }
       equipment_class:  { type: enum, of: EquipmentClass }
       direction:        { type: enum, of: HaulDirection }
+      surface_type:     { type: enum, of: SurfaceType }
+      shift_id:         { type: id }
+
+  blast_event:
+    description: >
+      one blast fired against one pattern. The muckpile it produces drives
+      loading and payload for as long as trucks work from it — days, not
+      minutes — which is why it is a subject, not a passing event.
+    observables:
+      powder_factor:    { type: float,    unit: "kg/m3" }
+      fragmentation:    { type: distance, unit: m }        # mean fragment size
+      volume:           { type: float,    unit: "m3" }
+    attributes:
+      bench_id:         { type: id }
+      area:             { type: id }
+      pattern_id:       { type: id }
+      material_type:    { type: enum, of: MaterialType }
+      shift_id:         { type: id }
+
+  crusher_availability:
+    description: availability and throughput of a crusher over a period
+    observables:
+      scheduled_time:   { type: duration, unit: s }
+      available_time:   { type: duration, unit: s }
+      downtime:         { type: duration, unit: s }
+      throughput:       { type: mass,     unit: kg }
+      availability:     { type: ratio, definition: available_time / scheduled_time }
+    attributes:
+      crusher_id:       { type: id }
       shift_id:         { type: id }
 
   entity_track:
@@ -595,6 +630,12 @@ VisibilityState:
   - smoke
   - dark
 
+SurfaceType:
+  - sealed
+  - gravel
+  - dirt
+  - rock
+
 OperationalRole:
   - extraction
   - processing
@@ -646,12 +687,36 @@ rolls_up      event-level into period-level      what granularity answers this?
 
 ## decomposes
 
-The whole equals the sum of its parts. Parts are observables of the same
-subject and must share a unit.
+A whole and its parts, in one of two modes.
+
+```
+additive        the whole is the sum of its parts, same unit throughout
+multiplicative  the whole is the product of its parts, units differ
+```
+
+**The mode is mandatory and load-bearing.** A walk that treats a product as
+a sum draws nonsense conclusions — `mass_moved` is `cycles × payload`, and
+attributing a tonnage drop to "the sum of cycles and payload" is meaningless.
+Additive parts share the whole's unit; multiplicative parts do not, and are
+exempt from the unit check.
 
 ```yaml
 decomposes:
+
+  - whole: production_shift.mass_moved
+    mode: multiplicative
+    parts:
+      - production_shift.cycles_completed
+      - production_shift.mean_payload
+
+  - whole: haul_cycle.load_time
+    mode: multiplicative
+    parts:
+      - loading_event.bucket_count
+      - loading_event.swing_time
+
   - whole: haul_cycle.cycle_time
+    mode: additive
     parts:
       - haul_cycle.queue_time
       - haul_cycle.spot_time
@@ -661,19 +726,30 @@ decomposes:
       - haul_cycle.return_time
 
   - whole: equipment_availability.scheduled_time
+    mode: additive
     parts:
       - equipment_availability.available_time
       - equipment_availability.downtime
 
   - whole: equipment_availability.available_time
+    mode: additive
     parts:
       - equipment_availability.operating_time
       - equipment_availability.standby_time
+
+  - whole: equipment_availability.downtime
+    mode: additive
+    parts:
+      - downtime_event.planned_duration
+      - downtime_event.unplanned_duration
 ```
 
 Ratios contribute decomposition implicitly. `utilization` is declared as
 `operating_time / available_time`, so a walk investigating a utilization
 drop already knows to examine both terms. Those edges are not repeated here.
+
+The full worked graph, with basis annotations and causal traces, is in
+`GRAPH.md`. This section is the machine-checkable subset.
 
 ## partitions
 
@@ -1206,8 +1282,11 @@ E15  an observable declares a unit inconsistent with its type
 E16  a duration observable is named *_hours or *_minutes
 E17  a ratio observable declares a percentage unit
 E18  a relation references an observable or attribute not in the vocabulary
-E19  a decomposition's parts are not all observables of the whole's subject
-E20  a decomposition's parts do not all share the whole's unit
+E19  a decomposition declares no mode, or a mode outside {additive,
+     multiplicative}
+E20  an additive decomposition's parts do not all share the whole's unit
+     (multiplicative decompositions are exempt — their parts differ by unit
+     by definition)
 E21  a partition names an attribute the metric's subject does not have
 E22  a confounder or influence names a subject no analyzer can reach
 E23  a rolls_up edge names a subject that does not exist
