@@ -1,0 +1,17 @@
+[package]
+name = "samaritan-planning"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Question to InvestigationPlan. The deterministic stages (resolution, lookup)
+# and the model-backed stages (validate, normalize, intent, domains).
+# This is the "model" crate the purity check keeps out of schema/registry/graph.
+[dependencies]
+samaritan-schema.workspace = true
+samaritan-graph.workspace = true
+samaritan-registry.workspace = true
+
+[lints]
+workspace = true

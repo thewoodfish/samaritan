@@ -1,0 +1,13 @@
+[package]
+name = "samaritan-schema"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The contracts. This crate depends on nothing else in the workspace, by design.
+# See SCHEMA.md: "Schemas are the shared language of Samaritan."
+[dependencies]
+
+[lints]
+workspace = true

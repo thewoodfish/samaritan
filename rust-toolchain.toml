@@ -1,0 +1,8 @@
+# Pinned so every build — local and CI — resolves the same compiler.
+# Reproducibility starts at the toolchain (PIPELINE.md, Determinism).
+#
+# Stable, not nightly: nothing in Samaritan needs nightly features, and
+# edition 2024 + resolver 3 are stable since 1.85.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

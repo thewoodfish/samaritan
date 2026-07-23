@@ -1,0 +1,17 @@
+[package]
+name = "samaritan-dispatch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Fan out the plan, run analyzers in parallel on one pinned world_version,
+# collect one RequirementSet. Orchestration only — no reasoning.
+[dependencies]
+samaritan-schema.workspace = true
+samaritan-graph.workspace = true
+samaritan-registry.workspace = true
+samaritan-planning.workspace = true
+
+[lints]
+workspace = true

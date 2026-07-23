@@ -1,0 +1,31 @@
+# Samaritan — operational intelligence pipeline.
+# Workspace layout mirrors the pipeline boundaries in PIPELINE.md.
+# Dependency direction is enforced by scripts/check-purity.sh, not by review.
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/schema",     # samaritan-schema     — the contracts. depends on nothing internal.
+    "crates/graph",      # samaritan-graph      — the relation graph.  depends on schema.
+    "crates/registry",   # samaritan-registry   — load + validate.     depends on schema, graph.
+    "crates/planning",   # samaritan-planning   — question to plan.     depends on schema, registry, graph.
+    "crates/dispatch",   # samaritan-dispatch   — fan out, collect.     depends on schema, registry, graph, planning.
+    "crates/samaritan",  # the binary.          depends on all.
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+samaritan-schema   = { path = "crates/schema" }
+samaritan-graph    = { path = "crates/graph" }
+samaritan-registry = { path = "crates/registry" }
+samaritan-planning = { path = "crates/planning" }
+samaritan-dispatch = { path = "crates/dispatch" }
+
+[workspace.lints.clippy]
+# The build plan runs clippy with -D warnings. Keep the lint surface honest.
+all = { level = "deny", priority = -1 }
