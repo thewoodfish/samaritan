@@ -1,0 +1,514 @@
+# The mining registry — the specimen from REGISTRY.md, as a loadable config.
+#
+# This file is the domain layer's contract. The engine never sees these words;
+# it stores them as opaque registered types. Change this file, not code, to
+# add a domain, analyzer, subject, or enum member.
+#
+# The loader validates every rule in REGISTRY.md's Registry Validation section.
+# The relations block is consumed by the graph crate (stage 3); the registry
+# loader in stage 2 does not yet validate it.
+
+registry_version: "1.0.0"
+
+intents: [Explain, Compare, Locate, Recommend, Predict, Summarize]
+
+strategies:
+  Explain:
+    goal: identify the causes of the observed change
+    expected_output: ranked causal hypotheses
+  Compare:
+    goal: identify meaningful differences between the subjects
+    expected_output: ranked differences with magnitude
+  Locate:
+    goal: identify which entity or place satisfies the description
+    expected_output: ranked candidate entities
+  Recommend:
+    goal: identify actionable improvement opportunities
+    expected_output: ranked recommendations with expected impact
+  Predict:
+    goal: estimate a future outcome from observed trend
+    expected_output: forecast with an uncertainty range
+  Summarize:
+    goal: produce a concise operational overview
+    expected_output: state summary across the requested scope
+
+domains:
+  - OperationalPerformance
+  - Production
+  - Equipment
+  - MaterialFlow
+  - Infrastructure
+  - Personnel
+  - Safety
+  - Security
+  - Environment
+  - Logistics
+
+analyzers:
+  - name: efficiency
+    version: "1.0.0"
+    domains: [OperationalPerformance, Production]
+    intents: [Explain, Compare, Summarize]
+    subjects: [haul_cycle, loading_event, production_shift, equipment_availability, blast_event, entity_track]
+
+  - name: flow
+    version: "1.0.0"
+    domains: [MaterialFlow, Logistics]
+    intents: [Explain, Compare, Locate, Summarize]
+    subjects: [haul_cycle, queue_event, route_segment, material_movement, crusher_availability, entity_track, zone_visit]
+
+  - name: maintenance
+    version: "1.0.0"
+    domains: [Equipment]
+    intents: [Explain, Predict, Summarize]
+    subjects: [equipment_availability, downtime_event, fault_event, maintenance_action]
+
+  - name: environment
+    version: "1.0.0"
+    domains: [Environment]
+    intents: [Explain, Compare, Summarize]
+    subjects: [weather_observation, ground_condition, visibility_condition]
+
+  - name: safety
+    version: "1.0.0"
+    domains: [Safety]
+    intents: [Explain, Locate, Summarize]
+    subjects: [incident_event, zone_visit, entity_track]
+
+subjects:
+  haul_cycle:
+    description: one complete spot-load-haul-dump-return loop by a hauling unit
+    observables:
+      cycle_time:     { type: duration, unit: s }
+      queue_time:     { type: duration, unit: s }
+      spot_time:      { type: duration, unit: s }
+      load_time:      { type: duration, unit: s }
+      haul_time:      { type: duration, unit: s }
+      dump_time:      { type: duration, unit: s }
+      return_time:    { type: duration, unit: s }
+      payload_mass:   { type: mass, unit: kg }
+      rated_capacity: { type: mass, unit: kg }
+      fill_factor:    { type: ratio, definition: payload_mass / rated_capacity }
+      haul_distance:  { type: distance, unit: m }
+    attributes:
+      equipment_id:    { type: id }
+      equipment_class: { type: enum, of: EquipmentClass }
+      operator_id:     { type: id }
+      origin:          { type: id }
+      destination:     { type: id }
+      material_type:   { type: enum, of: MaterialType }
+      shift_id:        { type: id }
+
+  loading_event:
+    description: one loading interaction between a loading unit and a hauler
+    observables:
+      load_time:    { type: duration, unit: s }
+      spot_time:    { type: duration, unit: s }
+      swing_time:   { type: duration, unit: s }
+      bucket_count: { type: count }
+      payload_mass: { type: mass, unit: kg }
+    attributes:
+      loader_id:     { type: id }
+      hauler_id:     { type: id }
+      material_type: { type: enum, of: MaterialType }
+      location:      { type: id }
+      shift_id:      { type: id }
+
+  queue_event:
+    description: a period an entity spent waiting to be served
+    observables:
+      wait_time:         { type: duration, unit: s }
+      queue_length:      { type: count }
+      position_in_queue: { type: count }
+    attributes:
+      equipment_id:    { type: id }
+      equipment_class: { type: enum, of: EquipmentClass }
+      location:        { type: id }
+      queue_type:      { type: enum, of: QueueType }
+      shift_id:        { type: id }
+
+  equipment_availability:
+    description: availability and utilization of one machine over one period
+    observables:
+      scheduled_time: { type: duration, unit: s }
+      available_time: { type: duration, unit: s }
+      operating_time: { type: duration, unit: s }
+      downtime:       { type: duration, unit: s }
+      standby_time:   { type: duration, unit: s }
+      availability:   { type: ratio, definition: available_time / scheduled_time }
+      utilization:    { type: ratio, definition: operating_time / available_time }
+    attributes:
+      equipment_id:    { type: id }
+      equipment_class: { type: enum, of: EquipmentClass }
+      shift_id:        { type: id }
+
+  downtime_event:
+    description: a period a machine was not available for production
+    observables:
+      duration:           { type: duration, unit: s }
+      planned_duration:   { type: duration, unit: s }
+      unplanned_duration: { type: duration, unit: s }
+      response_time:      { type: duration, unit: s }
+      repair_time:        { type: duration, unit: s }
+    attributes:
+      equipment_id:    { type: id }
+      equipment_class: { type: enum, of: EquipmentClass }
+      downtime_type:   { type: enum, of: DowntimeType }
+      planned:         { type: boolean }
+      fault_code:      { type: string }
+      shift_id:        { type: id }
+
+  fault_event:
+    description: a fault or alarm reported by a machine's onboard systems
+    observables:
+      time_to_acknowledge: { type: duration, unit: s }
+      occurrence_count:    { type: count }
+    attributes:
+      equipment_id:    { type: id }
+      equipment_class: { type: enum, of: EquipmentClass }
+      fault_code:      { type: string }
+      subsystem:       { type: enum, of: Subsystem }
+      severity:        { type: enum, of: FaultSeverity }
+      shift_id:        { type: id }
+
+  maintenance_action:
+    description: a maintenance task performed on a machine
+    observables:
+      labour_time: { type: duration, unit: s }
+      delay_time:  { type: duration, unit: s }
+      parts_count: { type: count }
+    attributes:
+      equipment_id:     { type: id }
+      maintenance_type: { type: enum, of: MaintenanceType }
+      subsystem:        { type: enum, of: Subsystem }
+      work_order_id:    { type: id }
+      shift_id:         { type: id }
+
+  production_shift:
+    description: aggregate production outcome for one shift
+    observables:
+      mass_moved:        { type: mass, unit: kg }
+      mass_planned:      { type: mass, unit: kg }
+      mean_payload:      { type: mass, unit: kg }
+      cycles_completed:  { type: count }
+      achievement_ratio: { type: ratio, definition: mass_moved / mass_planned }
+    attributes:
+      shift_id:      { type: id }
+      crew_id:       { type: id }
+      material_type: { type: enum, of: MaterialType }
+      area:          { type: id }
+
+  material_movement:
+    description: mass moved from one location to another over a period
+    observables:
+      mass_moved:   { type: mass, unit: kg }
+      load_count:   { type: count }
+      mean_payload: { type: mass, unit: kg }
+    attributes:
+      origin:        { type: id }
+      destination:   { type: id }
+      material_type: { type: enum, of: MaterialType }
+      shift_id:      { type: id }
+
+  route_segment:
+    description: traversal of one defined stretch of haul road by one entity
+    observables:
+      transit_time:   { type: duration, unit: s }
+      mean_speed:     { type: speed, unit: m/s }
+      segment_length: { type: distance, unit: m }
+      gradient:       { type: ratio }
+    attributes:
+      segment_id:      { type: id }
+      equipment_id:    { type: id }
+      equipment_class: { type: enum, of: EquipmentClass }
+      direction:       { type: enum, of: HaulDirection }
+      surface_type:    { type: enum, of: SurfaceType }
+      shift_id:        { type: id }
+
+  blast_event:
+    description: one blast fired against one pattern
+    observables:
+      powder_factor: { type: float, unit: "kg/m3" }
+      fragmentation: { type: distance, unit: m }
+      volume:        { type: float, unit: "m3" }
+    attributes:
+      bench_id:      { type: id }
+      area:          { type: id }
+      pattern_id:    { type: id }
+      material_type: { type: enum, of: MaterialType }
+      shift_id:      { type: id }
+
+  crusher_availability:
+    description: availability and throughput of a crusher over a period
+    observables:
+      scheduled_time: { type: duration, unit: s }
+      available_time: { type: duration, unit: s }
+      downtime:       { type: duration, unit: s }
+      throughput:     { type: mass, unit: kg }
+      availability:   { type: ratio, definition: available_time / scheduled_time }
+    attributes:
+      crusher_id: { type: id }
+      shift_id:   { type: id }
+
+  entity_track:
+    description: the movement of one object through space over time
+    spatial: true
+    observables:
+      speed:              { type: speed, unit: m/s }
+      heading:            { type: angle, unit: deg }
+      distance_travelled: { type: distance, unit: m }
+      time_idle:          { type: duration, unit: s }
+    attributes:
+      entity_id:    { type: id }
+      entity_class: { type: enum, of: EquipmentClass }
+      operator_id:  { type: id }
+      shift_id:     { type: id }
+
+  zone_visit:
+    description: one continuous presence of an entity inside one zone
+    spatial: true
+    observables:
+      dwell_time: { type: duration, unit: s }
+      entry_time: { type: timestamp }
+      exit_time:  { type: timestamp }
+    attributes:
+      entity_id:    { type: id }
+      entity_class: { type: enum, of: EquipmentClass }
+      zone_id:      { type: id }
+      operator_id:  { type: id }
+      shift_id:     { type: id }
+
+  incident_event:
+    description: an operational incident derived by the domain layer
+    observables:
+      time_to_resolve: { type: duration, unit: s }
+      duration:        { type: duration, unit: s }
+    attributes:
+      incident_type: { type: enum, of: IncidentType }
+      severity:      { type: enum, of: IncidentSeverity }
+      entity_id:     { type: id }
+      zone_id:       { type: id }
+      shift_id:      { type: id }
+
+  weather_observation:
+    description: environmental conditions at a point in time
+    observables:
+      rainfall:    { type: float, unit: mm }
+      temperature: { type: float, unit: "°C" }
+      wind_speed:  { type: speed, unit: m/s }
+    attributes:
+      station_id: { type: id }
+      area:       { type: id }
+
+  ground_condition:
+    description: assessed trafficability of a surface over a period
+    observables:
+      assessed_at: { type: timestamp }
+    attributes:
+      state:      { type: enum, of: GroundState }
+      area:       { type: id }
+      segment_id: { type: id }
+
+  visibility_condition:
+    description: assessed visibility over a period
+    observables:
+      visibility_range: { type: distance, unit: m }
+      assessed_at:      { type: timestamp }
+    attributes:
+      state: { type: enum, of: VisibilityState }
+      area:  { type: id }
+
+enumerations:
+  EquipmentClass:
+    - equipment.haul_truck
+    - equipment.excavator
+    - equipment.loader
+    - equipment.dozer
+    - equipment.grader
+    - equipment.drill
+    - equipment.water_cart
+    - equipment.light_vehicle
+  MaterialType: [ore, waste, overburden, topsoil]
+  QueueType: [loading, dumping, crusher, weighbridge, refuelling]
+  DowntimeType: [planned_maintenance, unplanned_breakdown, standby, operational_delay, shift_change, refuelling, weather]
+  MaintenanceType: [preventive, corrective, inspection, service]
+  Subsystem: [engine, transmission, hydraulics, brakes, tyres, electrical, body, cooling]
+  FaultSeverity: [informational, warning, critical]
+  IncidentType: [restricted_zone_breach, overspeed, proximity, unplanned_stop, overload]
+  IncidentSeverity: [low, medium, high, critical]
+  HaulDirection: [loaded, empty]
+  GroundState: [dry, damp, wet, muddy, icy]
+  VisibilityState: [clear, haze, dust, fog, smoke, dark]
+  SurfaceType: [sealed, gravel, dirt, rock]
+  OperationalRole: [extraction, processing, dumping, stockpile, maintenance, fuelling, haul_route, restricted, office]
+
+derived_observables:
+  speed:
+    derived_from: [position fixes]
+    definition: displacement over elapsed time between consecutive fixes
+    unit: m/s
+  distance_travelled:
+    derived_from: [speed, elapsed time]
+    definition: summed displacement along the path
+    unit: m
+  time_idle:
+    derived_from: [speed, shift state, zone occupancy]
+    emits: idle-period-ended
+    definition: cumulative time below idle_speed_threshold while on shift and outside excluded zones
+    unit: s
+    parameters:
+      idle_speed_threshold: 0.5
+      idle_min_duration: 120
+  dwell_time:
+    derived_from: [zone-entered, zone-exited]
+    emits: zone-dwell
+    definition: duration of a single continuous presence within a zone
+    unit: s
+
+zones:
+  - entity: ent_01J8XZ01
+    key: pit_3
+    label: Pit 3
+    operational_role: extraction
+  - entity: ent_01J8XZ02
+    key: crusher_primary
+    label: Primary Crusher
+    operational_role: processing
+  - entity: ent_01J8XZ03
+    key: workshop
+    label: Workshop
+    operational_role: maintenance
+    excluded_from_productivity: true
+  - entity: ent_01J8XZ04
+    key: blast_area_c
+    label: Blast Area C
+    operational_role: restricted
+    restricted: true
+    restricted_to: [equipment.light_vehicle]
+
+sites:
+  - id: site_01J8X0
+    name: Northern Pit Operation
+    organization: org_01J8X0
+    timezone: Africa/Lagos
+    calendar_family: northern_pit
+
+calendars:
+  northern_pit:
+    - version: v1
+      effective_from: "2024-01-01"
+      effective_until: "2026-03-31"
+      operational_day_starts: "07:00"
+      shifts:
+        - { name: day,   start: "07:00", duration: 43200 }
+        - { name: night, start: "19:00", duration: 43200 }
+    - version: v2
+      effective_from: "2026-04-01"
+      effective_until: null
+      operational_day_starts: "06:00"
+      shifts:
+        - { name: day,   start: "06:00", duration: 43200 }
+        - { name: night, start: "18:00", duration: 43200 }
+
+baseline_defaults:
+  Explain: trailing 30 operational days, ending at window start
+  Predict: trailing 90 operational days, ending at window start
+  Recommend: trailing 30 operational days, ending at window start
+  Compare: none
+  Locate: none
+  Summarize: none
+
+window_required:
+  Explain: true
+  Compare: true
+  Predict: true
+  Summarize: true
+  Recommend: true
+  Locate: false
+
+thresholds:
+  intent_confidence_floor: 0.60
+  domain_relevance_floor: 0.50
+  max_domains: 5
+  max_analyzers: 8
+  max_relation_depth: 3
+  default_max_runtime: 30
+  default_priority: Normal
+
+models:
+  planning:
+    model_id: claude-opus-4-8
+    temperature: 0
+    prompt_template_version: planning/2026-07-01
+  analyzers:
+    default:
+      model_id: claude-opus-4-8
+      temperature: 0
+      prompt_template_version: analyzer/2026-07-01
+    overrides: {}
+
+# Relations — consumed by the graph crate in stage 3. Present here so the
+# graph has data to load; not validated by the stage-2 registry loader.
+relations:
+  decomposes:
+    - whole: production_shift.mass_moved
+      mode: multiplicative
+      parts: [production_shift.cycles_completed, production_shift.mean_payload]
+    - whole: haul_cycle.load_time
+      mode: multiplicative
+      parts: [loading_event.bucket_count, loading_event.swing_time]
+    - whole: haul_cycle.cycle_time
+      mode: additive
+      parts: [haul_cycle.queue_time, haul_cycle.spot_time, haul_cycle.load_time, haul_cycle.haul_time, haul_cycle.dump_time, haul_cycle.return_time]
+    - whole: equipment_availability.scheduled_time
+      mode: additive
+      parts: [equipment_availability.available_time, equipment_availability.downtime]
+    - whole: equipment_availability.available_time
+      mode: additive
+      parts: [equipment_availability.operating_time, equipment_availability.standby_time]
+    - whole: equipment_availability.downtime
+      mode: additive
+      parts: [downtime_event.planned_duration, downtime_event.unplanned_duration]
+  partitions:
+    - metric: haul_cycle.cycle_time
+      by: [equipment_id, destination, material_type, operator_id, shift_id]
+    - metric: haul_cycle.queue_time
+      by: [location, destination, shift_id]
+    - metric: production_shift.mass_moved
+      by: [material_type, area, crew_id]
+    - metric: downtime_event.duration
+      by: [downtime_type, subsystem, equipment_id]
+    - metric: queue_event.wait_time
+      by: [queue_type, location, shift_id]
+    - metric: route_segment.transit_time
+      by: [segment_id, direction, equipment_class]
+  confounds:
+    - factor: equipment_availability.availability
+      affects: production_shift.mass_moved
+    - factor: haul_cycle.haul_distance
+      affects: haul_cycle.cycle_time
+      conditional: comparing across different origins or destinations
+    - factor: haul_cycle.material_type
+      affects: haul_cycle.cycle_time
+    - factor: downtime_event.planned
+      affects: equipment_availability.availability
+    - factor: ground_condition.state
+      affects: route_segment.mean_speed
+    - factor: production_shift.crew_id
+      affects: production_shift.mass_moved
+  influences:
+    - { from: weather_observation.rainfall, to: ground_condition.state, lag: 0, persistence: 21600 }
+    - { from: ground_condition.state, to: route_segment.mean_speed, lag: 0 }
+    - { from: visibility_condition.state, to: route_segment.mean_speed, lag: 0 }
+    - { from: route_segment.mean_speed, to: haul_cycle.haul_time, lag: 0 }
+    - { from: haul_cycle.cycle_time, to: production_shift.mass_moved, lag: 0 }
+    - { from: fault_event.occurrence_count, to: downtime_event.duration, lag: 0 }
+    - { from: downtime_event.duration, to: equipment_availability.availability, lag: 0 }
+    - { from: equipment_availability.availability, to: production_shift.mass_moved, lag: 0 }
+    - { from: loading_event.load_time, to: haul_cycle.queue_time, lag: 0 }
+  rolls_up:
+    - { from: haul_cycle, to: production_shift }
+    - { from: loading_event, to: production_shift }
+    - { from: haul_cycle, to: material_movement }
+    - { from: downtime_event, to: equipment_availability }
+    - { from: zone_visit, to: entity_track }
