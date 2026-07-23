@@ -26,6 +26,12 @@ samaritan-registry = { path = "crates/registry" }
 samaritan-planning = { path = "crates/planning" }
 samaritan-dispatch = { path = "crates/dispatch" }
 
+# Third-party. Pinned in Cargo.lock, committed for reproducible builds.
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono     = { version = "0.4", features = ["serde"] }
+thiserror  = "2"
+
 [workspace.lints.clippy]
 # The build plan runs clippy with -D warnings. Keep the lint surface honest.
 all = { level = "deny", priority = -1 }

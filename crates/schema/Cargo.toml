@@ -8,6 +8,12 @@ publish.workspace = true
 # The contracts. This crate depends on nothing else in the workspace, by design.
 # See SCHEMA.md: "Schemas are the shared language of Samaritan."
 [dependencies]
+serde.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true
