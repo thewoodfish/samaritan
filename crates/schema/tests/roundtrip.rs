@@ -195,6 +195,7 @@ fn full_requirement_roundtrips() {
         granularity: Granularity::Bucketed {
             bucket_size: Seconds(3600.0),
         },
+        group_by: vec!["equipment_id".into()],
         aggregations: vec![
             Aggregation {
                 op: AggregationOp::Mean,

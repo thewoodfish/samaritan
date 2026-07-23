@@ -181,6 +181,7 @@ fn availability_req(id: &str) -> InformationRequirement {
         },
         entities: vec![],
         granularity: Granularity::Shift,
+        group_by: vec![],
         aggregations: vec![Aggregation {
             op: AggregationOp::Mean,
             field: Some("availability".into()),
@@ -297,6 +298,99 @@ fn unregistered_term_is_recorded_unserviceable_not_passed_on() {
     assert!(
         !set.complete,
         "an unserviceable Required requirement fails the set"
+    );
+}
+
+#[test]
+fn full_efficiency_investigation_is_complete_and_multi_analyzer() {
+    // The whole "why did efficiency drop yesterday" question, three real
+    // analyzers, through dispatch. (Stage 8: the pipeline end to end.)
+    let reg = Arc::new(Registry::mining().unwrap());
+    let graph = Arc::new(reg.relation_graph());
+
+    let question = Question {
+        id: Id::from("q_full"),
+        schema_version: SchemaVersion::from("1.0.0"),
+        created_at: ts("2026-07-21T09:14:00Z"),
+        text: "Why did efficiency drop yesterday?".into(),
+        asked_at: ts("2026-07-21T09:14:00Z"),
+        operator: Id::from("op_01J8X0"),
+        organization: Id::from("org_01J8X0"),
+        site: Id::from("site_01J8X0"),
+        locale: "en".into(),
+    };
+    let plan = Arc::new(
+        assemble_plan(
+            &reg,
+            PlanInputs {
+                question,
+                normalized_question: "Why did efficiency decrease yesterday?".into(),
+                intent: Intent {
+                    kind: IntentType::Explain,
+                    confidence: Confidence::new(0.96).unwrap(),
+                    rationale: "x".into(),
+                },
+                ranked_domains: vec![
+                    RankedDomain {
+                        domain: DomainType::OperationalPerformance,
+                        rank: 0,
+                        confidence: Confidence::new(0.94).unwrap(),
+                        rationale: "x".into(),
+                    },
+                    RankedDomain {
+                        domain: DomainType::MaterialFlow,
+                        rank: 0,
+                        confidence: Confidence::new(0.81).unwrap(),
+                        rationale: "x".into(),
+                    },
+                    RankedDomain {
+                        domain: DomainType::Equipment,
+                        rank: 0,
+                        confidence: Confidence::new(0.77).unwrap(),
+                        rationale: "x".into(),
+                    },
+                ],
+                time_expr: "yesterday".into(),
+                scope_phrase: None,
+                entities: vec![],
+                world_version: WorldVersion {
+                    log_position: 1,
+                    as_of: ts("2026-07-21T09:14:00Z"),
+                    snapshot: None,
+                },
+                priority: Priority::Normal,
+                plan_id: Id::from("plan_full"),
+                created_at: ts("2026-07-21T09:14:00Z"),
+                provenance: PlanProvenance {
+                    model_id: "m".into(),
+                    prompt_template_version: "p".into(),
+                    registry_version: SchemaVersion::from("1.0.0"),
+                    cache_hit: false,
+                },
+            },
+        )
+        .unwrap(),
+    );
+
+    let analyzers = analyzers_for_plan(&reg, &plan);
+    assert_eq!(analyzers.len(), 3, "efficiency, flow, maintenance");
+
+    let set = dispatch(reg, graph, plan, analyzers);
+
+    assert!(set.complete, "unserviceable: {:?}", set.unserviceable);
+    assert_eq!(set.execution.completed.len(), 3);
+    let requesters: std::collections::BTreeSet<&str> = set
+        .requirements
+        .iter()
+        .flat_map(|r| r.requested_by.iter().map(String::as_str))
+        .collect();
+    assert!(requesters.contains("efficiency"));
+    assert!(requesters.contains("flow"));
+    assert!(requesters.contains("maintenance"));
+    // efficiency's decomposition put the six cycle phases in one requirement.
+    assert!(
+        set.requirements.iter().any(|r| r.subject == "haul_cycle"
+            && r.observables.contains(&"queue_time".to_string()))
     );
 }
 

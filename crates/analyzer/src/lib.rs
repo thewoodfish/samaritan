@@ -12,13 +12,23 @@
 //! implemented the `Explain` strategy for one analyzer (the thesis test); the
 //! remaining strategies arrive in stage 8.
 
-mod explain;
+mod strategy;
 
 use samaritan_graph::{NodeRef, RelationGraph};
 use samaritan_registry::Registry;
 use samaritan_schema::{InformationRequirement, IntentType, InvestigationPlan};
 
-pub use explain::explain;
+/// The registry key for an intent — analyzers declare the intents they serve.
+fn intent_key(i: IntentType) -> &'static str {
+    match i {
+        IntentType::Explain => "Explain",
+        IntentType::Compare => "Compare",
+        IntentType::Locate => "Locate",
+        IntentType::Recommend => "Recommend",
+        IntentType::Predict => "Predict",
+        IntentType::Summarize => "Summarize",
+    }
+}
 
 /// The contract every analyzer implements. `Send + Sync` so dispatch can run a
 /// set of them in parallel. `run` returns `Err` for a genuine failure; an empty
@@ -68,11 +78,16 @@ impl GraphAnalyzer {
         let Some(target) = &self.target else {
             return Vec::new();
         };
-        match plan.intent.kind {
-            IntentType::Explain => explain(reg, graph, plan, &self.name, target),
-            // Other strategies arrive in stage 8.
-            _ => Vec::new(),
+        // Decline an intent the analyzer does not declare — a legitimate empty
+        // outcome, not a failure.
+        if !reg
+            .analyzer(&self.name)
+            .map(|a| a.intents.iter().any(|i| i == intent_key(plan.intent.kind)))
+            .unwrap_or(false)
+        {
+            return Vec::new();
         }
+        strategy::requirements(reg, graph, plan, &self.name, target)
     }
 }
 

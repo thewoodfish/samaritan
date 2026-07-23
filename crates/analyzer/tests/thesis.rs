@@ -181,12 +181,14 @@ fn walk_is_deterministic() {
 }
 
 #[test]
-fn analyzer_without_target_returns_nothing() {
-    // environment declares no metric, so it produces no requirements here
-    // (a legitimate empty outcome, not a failure).
+fn analyzer_declining_an_intent_returns_nothing() {
+    // environment declares Explain/Compare/Summarize, not Predict. Given a
+    // Predict plan it produces nothing — a legitimate empty outcome, not a
+    // failure.
     let reg = Registry::mining().unwrap();
     let graph = reg.relation_graph();
-    let plan = efficiency_plan(&reg);
+    let mut plan = efficiency_plan(&reg);
+    plan.intent.kind = IntentType::Predict;
     let env = GraphAnalyzer::from_registry(&reg, "environment").unwrap();
     assert!(env.requirements(&reg, &graph, &plan).is_empty());
 }

@@ -33,6 +33,12 @@ pub struct InformationRequirement {
     pub entities: Vec<EntityRef>,
 
     pub granularity: Granularity,
+    /// Attribute names to group the result by, e.g. `equipment_id` for
+    /// "per truck". Aggregations then apply within each group. Empty means no
+    /// grouping. Paired with `ordering` + `limit` this expresses "the five
+    /// worst trucks by mean cycle time".
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group_by: Vec<String>,
     pub aggregations: Vec<Aggregation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ordering: Option<Ordering>,

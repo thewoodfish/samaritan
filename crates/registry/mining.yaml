@@ -57,24 +57,28 @@ analyzers:
     domains: [MaterialFlow, Logistics]
     intents: [Explain, Compare, Locate, Summarize]
     subjects: [haul_cycle, queue_event, route_segment, material_movement, crusher_availability, entity_track, zone_visit]
+    metric: queue_event.wait_time
 
   - name: maintenance
     version: "1.0.0"
     domains: [Equipment]
     intents: [Explain, Predict, Summarize]
     subjects: [equipment_availability, downtime_event, fault_event, maintenance_action]
+    metric: equipment_availability.availability
 
   - name: environment
     version: "1.0.0"
     domains: [Environment]
     intents: [Explain, Compare, Summarize]
     subjects: [weather_observation, ground_condition, visibility_condition]
+    metric: weather_observation.rainfall
 
   - name: safety
     version: "1.0.0"
     domains: [Safety]
     intents: [Explain, Locate, Summarize]
     subjects: [incident_event, zone_visit, entity_track]
+    metric: incident_event.duration
 
 subjects:
   haul_cycle:

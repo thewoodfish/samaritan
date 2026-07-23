@@ -35,6 +35,16 @@ pub fn check(
         }
     }
 
+    // Group-by keys must be attributes of the subject.
+    for key in &req.group_by {
+        if !subject.attributes.contains_key(key) {
+            return Some((
+                UnserviceableReason::UnregisteredTerm,
+                format!("group_by '{key}' is not an attribute of '{}'", req.subject),
+            ));
+        }
+    }
+
     // Filter, aggregation, and ordering fields must be registry terms.
     for f in &req.filters {
         if !subject.observables.contains_key(&f.field) && !subject.attributes.contains_key(&f.field)
