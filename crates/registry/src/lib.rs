@@ -121,6 +121,39 @@ impl Registry {
         RelationGraph::from_config(&self.config.relations)
             .expect("a validated registry always builds its graph")
     }
+
+    /// A site by id.
+    pub fn site(&self, id: &str) -> Option<&config::SiteConfig> {
+        self.config.sites.iter().find(|s| s.id == id)
+    }
+
+    /// The version list for a calendar family.
+    pub fn calendar_versions(&self, family: &str) -> Option<&[config::CalendarVersionConfig]> {
+        self.config.calendars.get(family).map(Vec::as_slice)
+    }
+
+    /// The strategy config for an intent name.
+    pub fn strategy(&self, intent: &str) -> Option<&config::StrategyConfig> {
+        self.config.strategies.get(intent)
+    }
+
+    /// The baseline default for an intent name.
+    pub fn baseline_default(&self, intent: &str) -> Option<&config::BaselineDefault> {
+        self.config.baseline_defaults.get(intent)
+    }
+
+    pub fn thresholds(&self) -> &config::ThresholdsConfig {
+        &self.config.thresholds
+    }
+
+    /// The analyzer declaration by name.
+    pub fn analyzer(&self, name: &str) -> Option<&config::AnalyzerConfig> {
+        self.config.analyzers.iter().find(|a| a.name == name)
+    }
+
+    pub fn zones(&self) -> &[config::ZoneConfig] {
+        &self.config.zones
+    }
 }
 
 /// Build domain → sorted analyzer names from the analyzer declarations.

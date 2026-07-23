@@ -240,7 +240,8 @@ fn e13_strategy_missing_for_intent() {
 #[test]
 fn e14_baseline_unknown_intent() {
     let mut c = base_config();
-    c.baseline_defaults.insert("Ponder".into(), "none".into());
+    c.baseline_defaults
+        .insert("Ponder".into(), serde_yaml::from_str("none").unwrap());
     assert_exactly(&c, Code::E14BaselineUnknownIntent);
 }
 

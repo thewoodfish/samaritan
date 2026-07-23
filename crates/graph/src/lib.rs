@@ -11,6 +11,7 @@
 //! ## What lives here
 //!
 //! - [`config::RelationsConfig`] — the raw relations block (serde)
+//!
 //! - [`RelationGraph`] — the typed graph, built via [`RelationGraph::from_config`]
 //! - traversal: [`RelationGraph::decomposition_walk`],
 //!   [`RelationGraph::backward_influence_walk`], and the neighbour lookups

@@ -412,9 +412,9 @@ calendars:
         - { name: night, start: "18:00", duration: 43200 }
 
 baseline_defaults:
-  Explain: trailing 30 operational days, ending at window start
-  Predict: trailing 90 operational days, ending at window start
-  Recommend: trailing 30 operational days, ending at window start
+  Explain: { trailing_operational_days: 30 }
+  Predict: { trailing_operational_days: 90 }
+  Recommend: { trailing_operational_days: 30 }
   Compare: none
   Locate: none
   Summarize: none

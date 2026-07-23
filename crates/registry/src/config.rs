@@ -25,7 +25,7 @@ pub struct RegistryConfig {
     pub zones: Vec<ZoneConfig>,
     pub sites: Vec<SiteConfig>,
     pub calendars: BTreeMap<String, Vec<CalendarVersionConfig>>,
-    pub baseline_defaults: BTreeMap<String, String>,
+    pub baseline_defaults: BTreeMap<String, BaselineDefault>,
     pub window_required: BTreeMap<String, bool>,
     pub thresholds: ThresholdsConfig,
     /// The relation graph. Parsed via the graph crate; validated here (E18–E23,
@@ -139,6 +139,27 @@ pub struct ShiftConfig {
     pub start: String,
     /// Duration in seconds.
     pub duration: u64,
+}
+
+/// A default reference period for an intent. `none` (a bare string) means the
+/// intent supplies no default; otherwise a trailing operational-day window.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum BaselineDefault {
+    Trailing { trailing_operational_days: u32 },
+    Keyword(String),
+}
+
+impl BaselineDefault {
+    /// The trailing-day count, if this is a real default.
+    pub fn trailing_days(&self) -> Option<u32> {
+        match self {
+            BaselineDefault::Trailing {
+                trailing_operational_days,
+            } => Some(*trailing_operational_days),
+            BaselineDefault::Keyword(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
