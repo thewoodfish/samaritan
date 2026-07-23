@@ -28,3 +28,34 @@ pub fn domain_key(d: DomainType) -> &'static str {
         DomainType::Logistics => "Logistics",
     }
 }
+
+/// A model-reported intent name to the enum, or `None` if unrecognized.
+pub fn parse_intent(s: &str) -> Option<IntentType> {
+    Some(match s {
+        "Explain" => IntentType::Explain,
+        "Compare" => IntentType::Compare,
+        "Locate" => IntentType::Locate,
+        "Recommend" => IntentType::Recommend,
+        "Predict" => IntentType::Predict,
+        "Summarize" => IntentType::Summarize,
+        _ => return None,
+    })
+}
+
+/// A model-reported domain name to the enum, or `None` if unrecognized (a
+/// hallucinated domain is dropped, never guessed at).
+pub fn parse_domain(s: &str) -> Option<DomainType> {
+    Some(match s {
+        "OperationalPerformance" => DomainType::OperationalPerformance,
+        "Production" => DomainType::Production,
+        "Equipment" => DomainType::Equipment,
+        "MaterialFlow" => DomainType::MaterialFlow,
+        "Infrastructure" => DomainType::Infrastructure,
+        "Personnel" => DomainType::Personnel,
+        "Safety" => DomainType::Safety,
+        "Security" => DomainType::Security,
+        "Environment" => DomainType::Environment,
+        "Logistics" => DomainType::Logistics,
+        _ => return None,
+    })
+}

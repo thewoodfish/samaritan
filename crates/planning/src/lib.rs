@@ -17,12 +17,19 @@
 mod assemble;
 mod error;
 mod keys;
+mod model;
+mod ollama;
+mod orchestrate;
 mod scope;
 mod select;
+mod stages;
 mod time;
 
 pub use assemble::{PlanInputs, assemble_plan, derive_strategy};
 pub use error::{PlanningError, ResolveError};
+pub use model::{Model, ModelError, PROMPT_TEMPLATE_VERSION};
+pub use ollama::OllamaModel;
+pub use orchestrate::{DeterminismReport, PlanOutcome, determinism_report, plan_question};
 pub use scope::resolve_scope;
 pub use select::{cull_domains, select_analyzers};
 pub use time::{baseline_window, resolve_time};

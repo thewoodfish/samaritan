@@ -31,10 +31,18 @@ pub enum ResolveError {
 pub enum PlanningError {
     #[error(transparent)]
     Resolve(#[from] ResolveError),
+    #[error("model call failed: {0}")]
+    Model(String),
     #[error("no analyzer covers any ranked domain — nothing to investigate")]
     NoAnalyzers,
     #[error("no domain survived the relevance floor")]
     NoDomains,
     #[error("intent '{0}' has no strategy in the registry")]
     MissingStrategy(String),
+}
+
+impl From<crate::model::ModelError> for PlanningError {
+    fn from(e: crate::model::ModelError) -> Self {
+        PlanningError::Model(e.to_string())
+    }
 }
