@@ -12,7 +12,7 @@
 //! - every emitted requirement validates against the registry
 //! - the decomposition observables come from the graph, not a hardcoded list
 
-use samaritan_analyzer::Analyzer;
+use samaritan_analyzer::GraphAnalyzer;
 use samaritan_planning::{PlanInputs, assemble_plan};
 use samaritan_registry::Registry;
 use samaritan_schema::*;
@@ -101,7 +101,7 @@ fn efficiency_explain_reproduces_hand_written_requirements() {
     let graph = reg.relation_graph();
     let plan = efficiency_plan(&reg);
 
-    let efficiency = Analyzer::from_registry(&reg, "efficiency").unwrap();
+    let efficiency = GraphAnalyzer::from_registry(&reg, "efficiency").unwrap();
     let reqs = efficiency.requirements(&reg, &graph, &plan);
 
     // Every requirement is valid against the registry.
@@ -170,7 +170,7 @@ fn walk_is_deterministic() {
     let reg = Registry::mining().unwrap();
     let graph = reg.relation_graph();
     let plan = efficiency_plan(&reg);
-    let efficiency = Analyzer::from_registry(&reg, "efficiency").unwrap();
+    let efficiency = GraphAnalyzer::from_registry(&reg, "efficiency").unwrap();
 
     let a = efficiency.requirements(&reg, &graph, &plan);
     let b = efficiency.requirements(&reg, &graph, &plan);
@@ -187,6 +187,6 @@ fn analyzer_without_target_returns_nothing() {
     let reg = Registry::mining().unwrap();
     let graph = reg.relation_graph();
     let plan = efficiency_plan(&reg);
-    let env = Analyzer::from_registry(&reg, "environment").unwrap();
+    let env = GraphAnalyzer::from_registry(&reg, "environment").unwrap();
     assert!(env.requirements(&reg, &graph, &plan).is_empty());
 }

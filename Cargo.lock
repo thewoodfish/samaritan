@@ -521,10 +521,13 @@ dependencies = [
 name = "samaritan-dispatch"
 version = "0.0.0"
 dependencies = [
+ "chrono",
+ "samaritan-analyzer",
  "samaritan-graph",
  "samaritan-planning",
  "samaritan-registry",
  "samaritan-schema",
+ "serde_json",
 ]
 
 [[package]]

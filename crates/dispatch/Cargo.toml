@@ -11,7 +11,12 @@ publish.workspace = true
 samaritan-schema.workspace = true
 samaritan-graph.workspace = true
 samaritan-registry.workspace = true
+samaritan-analyzer.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
 samaritan-planning.workspace = true
+chrono.workspace = true
 
 [lints]
 workspace = true
