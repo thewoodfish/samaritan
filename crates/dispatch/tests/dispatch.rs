@@ -74,6 +74,71 @@ fn plan_with_runtime(reg: &Registry, max_runtime: f64) -> InvestigationPlan {
     plan
 }
 
+/// The full "why did efficiency drop yesterday" plan — three analyzers.
+fn full_plan(reg: &Registry) -> InvestigationPlan {
+    let question = Question {
+        id: Id::from("q_full"),
+        schema_version: SchemaVersion::from("1.0.0"),
+        created_at: ts("2026-07-21T09:14:00Z"),
+        text: "Why did efficiency drop yesterday?".into(),
+        asked_at: ts("2026-07-21T09:14:00Z"),
+        operator: Id::from("op_01J8X0"),
+        organization: Id::from("org_01J8X0"),
+        site: Id::from("site_01J8X0"),
+        locale: "en".into(),
+    };
+    assemble_plan(
+        reg,
+        PlanInputs {
+            question,
+            normalized_question: "Why did efficiency decrease yesterday?".into(),
+            intent: Intent {
+                kind: IntentType::Explain,
+                confidence: Confidence::new(0.96).unwrap(),
+                rationale: "x".into(),
+            },
+            ranked_domains: vec![
+                RankedDomain {
+                    domain: DomainType::OperationalPerformance,
+                    rank: 0,
+                    confidence: Confidence::new(0.94).unwrap(),
+                    rationale: "x".into(),
+                },
+                RankedDomain {
+                    domain: DomainType::MaterialFlow,
+                    rank: 0,
+                    confidence: Confidence::new(0.81).unwrap(),
+                    rationale: "x".into(),
+                },
+                RankedDomain {
+                    domain: DomainType::Equipment,
+                    rank: 0,
+                    confidence: Confidence::new(0.77).unwrap(),
+                    rationale: "x".into(),
+                },
+            ],
+            time_expr: "yesterday".into(),
+            scope_phrase: None,
+            entities: vec![],
+            world_version: WorldVersion {
+                log_position: 1,
+                as_of: ts("2026-07-21T09:14:00Z"),
+                snapshot: None,
+            },
+            priority: Priority::Normal,
+            plan_id: Id::from("plan_full"),
+            created_at: ts("2026-07-21T09:14:00Z"),
+            provenance: PlanProvenance {
+                model_id: "m".into(),
+                prompt_template_version: "p".into(),
+                registry_version: SchemaVersion::from("1.0.0"),
+                cache_hit: false,
+            },
+        },
+    )
+    .unwrap()
+}
+
 // ---- analyzer doubles -----------------------------------------------------
 
 /// Emits one fixed requirement, attributed to `name`.
@@ -392,6 +457,114 @@ fn full_efficiency_investigation_is_complete_and_multi_analyzer() {
         set.requirements.iter().any(|r| r.subject == "haul_cycle"
             && r.observables.contains(&"queue_time".to_string()))
     );
+}
+
+#[test]
+fn requirement_set_replays_identically() {
+    // The plan pins its world_version, so re-running dispatch — even "later",
+    // after the real world has advanced — reproduces the identical set. This is
+    // replay: a stored artifact reconstructs bit-for-bit (Stage 9).
+    let reg = Arc::new(Registry::mining().unwrap());
+    let graph = Arc::new(reg.relation_graph());
+    let plan = Arc::new(full_plan(&reg));
+
+    // The semantic artifact — requirements, unserviceable, completeness, and the
+    // identity fields. Execution durations are wall-clock measurements and are
+    // deliberately excluded; they are observability, not content.
+    let semantic = |s: &samaritan_schema::RequirementSet| {
+        serde_json::to_string(&(
+            &s.id,
+            &s.plan_id,
+            &s.question_id,
+            &s.world_version,
+            &s.requirements,
+            &s.unserviceable,
+            s.complete,
+        ))
+        .unwrap()
+    };
+
+    let stored = semantic(&dispatch(
+        reg.clone(),
+        graph.clone(),
+        plan.clone(),
+        analyzers_for_plan(&reg, &plan),
+    ));
+    let replayed = semantic(&dispatch(
+        reg.clone(),
+        graph.clone(),
+        plan.clone(),
+        analyzers_for_plan(&reg, &plan),
+    ));
+
+    assert_eq!(stored, replayed, "the pinned plan must replay identically");
+}
+
+#[test]
+fn provenance_chain_resolves_for_every_requirement() {
+    // Every requirement traces back: requester -> analyzer -> domain -> plan ->
+    // question. Nothing appears without provenance (PIPELINE.md).
+    let reg = Arc::new(Registry::mining().unwrap());
+    let graph = Arc::new(reg.relation_graph());
+    let plan = Arc::new(full_plan(&reg));
+
+    let plan_analyzers: std::collections::BTreeSet<&str> =
+        plan.analyzers.iter().map(|a| a.name.as_str()).collect();
+    let plan_domains: std::collections::HashSet<DomainType> =
+        plan.domains.domains.iter().map(|d| d.domain).collect();
+
+    let set = dispatch(
+        reg.clone(),
+        graph,
+        plan.clone(),
+        analyzers_for_plan(&reg, &plan),
+    );
+
+    // The set links back to the plan and question.
+    assert_eq!(set.plan_id, plan.id);
+    assert_eq!(set.question_id, plan.question_id);
+    assert_eq!(
+        set.world_version.log_position,
+        plan.constraints.world_version.log_position
+    );
+
+    for req in &set.requirements {
+        // requirement -> plan
+        assert_eq!(req.plan_id, plan.id, "requirement names its plan");
+        // requirement -> analyzer(s) that asked for it, each named in the plan
+        assert!(!req.requested_by.is_empty());
+        for requester in &req.requested_by {
+            assert!(
+                plan_analyzers.contains(requester.as_str()),
+                "requester '{requester}' is not an analyzer in the plan"
+            );
+            // analyzer -> domain: at least one of its domains is in the plan
+            let decl = reg.analyzer(requester).unwrap();
+            let covers = decl
+                .domains
+                .iter()
+                .filter_map(|d| parse_domain(d))
+                .any(|d| plan_domains.contains(&d));
+            assert!(covers, "analyzer '{requester}' covers no ranked domain");
+        }
+    }
+}
+
+/// Local domain parser for the provenance check.
+fn parse_domain(s: &str) -> Option<DomainType> {
+    Some(match s {
+        "OperationalPerformance" => DomainType::OperationalPerformance,
+        "Production" => DomainType::Production,
+        "Equipment" => DomainType::Equipment,
+        "MaterialFlow" => DomainType::MaterialFlow,
+        "Infrastructure" => DomainType::Infrastructure,
+        "Personnel" => DomainType::Personnel,
+        "Safety" => DomainType::Safety,
+        "Security" => DomainType::Security,
+        "Environment" => DomainType::Environment,
+        "Logistics" => DomainType::Logistics,
+        _ => return None,
+    })
 }
 
 #[test]

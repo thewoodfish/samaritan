@@ -10,8 +10,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use samaritan_planning::{
-    Model, ModelError, PROMPT_TEMPLATE_VERSION, PlanInputs, PlanOutcome, assemble_plan,
-    determinism_report, plan_question,
+    InMemoryPlanCache, Model, ModelError, PROMPT_TEMPLATE_VERSION, PlanInputs, PlanOutcome,
+    assemble_plan, determinism_report, plan_question, plan_question_cached,
 };
 use samaritan_registry::Registry;
 use samaritan_schema::*;
@@ -38,6 +38,12 @@ impl ScriptedModel {
                 .collect(),
             calls: RefCell::new(Vec::new()),
         }
+    }
+}
+
+impl ScriptedModel {
+    fn call_count(&self) -> usize {
+        self.calls.borrow().len()
     }
 }
 
@@ -274,6 +280,87 @@ fn model_plan_matches_direct_assembly() {
 }
 
 // ---- determinism harness --------------------------------------------------
+
+// ---- caching and replay ---------------------------------------------------
+
+#[test]
+fn repeat_question_is_served_from_cache_without_the_model() {
+    let reg = Registry::mining().unwrap();
+    let cache = InMemoryPlanCache::new();
+    let model = efficiency_model();
+
+    // First: a miss — the model runs (five stages), cache_hit false.
+    let first = plan_question_cached(&model, &reg, &sample_question(), world(), &cache).unwrap();
+    let PlanOutcome::Plan(p1) = &first else {
+        panic!("plan")
+    };
+    assert!(!p1.provenance.cache_hit);
+    let calls_after_first = model.call_count();
+    assert_eq!(calls_after_first, 5, "all five stages ran on the miss");
+
+    // Second: a hit — cache_hit true, and the model is not called again.
+    let second = plan_question_cached(&model, &reg, &sample_question(), world(), &cache).unwrap();
+    let PlanOutcome::Plan(p2) = &second else {
+        panic!("plan")
+    };
+    assert!(p2.provenance.cache_hit);
+    assert_eq!(
+        model.call_count(),
+        calls_after_first,
+        "no model calls on a hit"
+    );
+    assert_eq!(cache.len(), 1);
+
+    // Identical apart from the cache_hit flag.
+    let mut a = p1.clone();
+    let mut b = p2.clone();
+    a.provenance.cache_hit = false;
+    b.provenance.cache_hit = false;
+    assert_eq!(
+        serde_json::to_string(&a).unwrap(),
+        serde_json::to_string(&b).unwrap()
+    );
+}
+
+#[test]
+fn changing_any_pin_misses_the_cache() {
+    let reg = Registry::mining().unwrap();
+    let cache = InMemoryPlanCache::new();
+
+    plan_question_cached(
+        &efficiency_model(),
+        &reg,
+        &sample_question(),
+        world(),
+        &cache,
+    )
+    .unwrap();
+    assert_eq!(cache.len(), 1);
+
+    // A different world_version is a different pin -> a miss, a second entry.
+    let mut other_world = world();
+    other_world.log_position = 999;
+    plan_question_cached(
+        &efficiency_model(),
+        &reg,
+        &sample_question(),
+        other_world,
+        &cache,
+    )
+    .unwrap();
+    assert_eq!(cache.len(), 2, "a changed pin must miss");
+
+    // The same question again still hits (no third entry).
+    plan_question_cached(
+        &efficiency_model(),
+        &reg,
+        &sample_question(),
+        world(),
+        &cache,
+    )
+    .unwrap();
+    assert_eq!(cache.len(), 2, "unchanged pins hit");
+}
 
 #[test]
 fn determinism_harness_reports_all_stable() {

@@ -36,6 +36,7 @@ chrono     = { version = "0.4", features = ["serde"] }
 chrono-tz  = "0.10"
 thiserror  = "2"
 ureq       = { version = "2", features = ["json"] }
+sha2       = "0.10"
 
 [workspace.lints.clippy]
 # The build plan runs clippy with -D warnings. Keep the lint surface honest.

@@ -15,6 +15,7 @@
 //! into an `Incomplete` re-ask (`PLANNING.md`).
 
 mod assemble;
+mod cache;
 mod error;
 mod keys;
 mod model;
@@ -26,6 +27,7 @@ mod stages;
 mod time;
 
 pub use assemble::{PlanInputs, assemble_plan, derive_strategy};
+pub use cache::{CacheKey, InMemoryPlanCache, PlanCache, cache_key, plan_question_cached};
 pub use error::{PlanningError, ResolveError};
 pub use model::{Model, ModelError, PROMPT_TEMPLATE_VERSION};
 pub use ollama::OllamaModel;
