@@ -297,7 +297,15 @@ struct Ctx<'a> {
 impl Ctx<'_> {
     fn next_id(&mut self) -> Id {
         self.seq += 1;
-        Id(format!("req_{}_{:04}", self.plan.id.0, self.seq))
+        // Include the analyzer so ids are unique within a RequirementSet — two
+        // analyzers both number from 1, so plan + seq alone would collide.
+        let core = self
+            .plan
+            .id
+            .0
+            .strip_prefix("plan_")
+            .unwrap_or(&self.plan.id.0);
+        Id(format!("req_{core}_{}_{:04}", self.analyzer, self.seq))
     }
 
     fn base(&mut self, subject: String) -> InformationRequirement {

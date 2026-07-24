@@ -13,5 +13,9 @@ samaritan-registry.workspace = true
 samaritan-planning.workspace = true
 samaritan-dispatch.workspace = true
 
+[dev-dependencies]
+chrono.workspace = true
+serde_json.workspace = true
+
 [lints]
 workspace = true

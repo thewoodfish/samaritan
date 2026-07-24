@@ -18,6 +18,7 @@ Read in this order.
 | [REGISTRY.md](REGISTRY.md) | Every vocabulary, mapping, threshold, and validation rule |
 | [ENGINE.md](ENGINE.md) | The Samaritan ↔ Reality Engine boundary |
 | [GRAPH.md](GRAPH.md) | The mining relation graph, worked in full |
+| [REQUIREMENTSET.md](REQUIREMENTSET.md) | The terminal artifact — the shape of the engine's request API |
 
 ## The build
 
