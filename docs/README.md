@@ -19,6 +19,7 @@ Read in this order.
 | [ENGINE.md](ENGINE.md) | The Samaritan ↔ Reality Engine boundary |
 | [GRAPH.md](GRAPH.md) | The mining relation graph, worked in full |
 | [REQUIREMENTSET.md](REQUIREMENTSET.md) | The terminal artifact — the shape of the engine's request API |
+| [MEREDITH_API.md](MEREDITH_API.md) | The Reality Engine's query API — the contract Meredith answers (Part 2 entry point) |
 
 ## The build
 
